@@ -1,7 +1,5 @@
-import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.mjs";
-
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.4.299/build/pdf.worker.mjs";
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
 
 const pdfUrl =
@@ -30,7 +28,8 @@ const pageCounter =
   document.getElementById("page-counter");
 
 
-const RENDER_WIDTH = 1600;
+const RENDER_WIDTH_DESKTOP = 1600;
+const RENDER_WIDTH_MOBILE = 1100;
 
 let pageRatio = 258 / 183;
 
@@ -41,14 +40,15 @@ let totalPages = 0;
 const temporaryImageUrls = [];
 
 
-/*
-  실제로 책이 들어갈 main 영역을 측정해서
-  가능한 최대 페이지 크기를 계산한다.
-*/
+function isMobileDevice() {
+  return window.innerWidth <= 700;
+}
+
+
 function getBookSize() {
 
   const isMobile =
-    window.innerWidth <= 700;
+    isMobileDevice();
 
   const availableWidth =
     main.clientWidth;
@@ -56,16 +56,10 @@ function getBookSize() {
   const availableHeight =
     main.clientHeight;
 
-
   let pageWidth;
-
 
   if (isMobile) {
 
-    /*
-      모바일:
-      한 페이지가 화면 안에 최대한 크게 들어가도록
-    */
     const widthLimit =
       availableWidth - 16;
 
@@ -81,11 +75,6 @@ function getBookSize() {
 
   } else {
 
-    /*
-      데스크톱:
-      두 페이지 펼침이 main 영역을
-      거의 가득 사용하도록
-    */
     const widthLimit =
       (availableWidth - 32) / 2;
 
@@ -101,16 +90,13 @@ function getBookSize() {
 
   }
 
-
   pageWidth =
     Math.floor(pageWidth);
-
 
   const pageHeight =
     Math.floor(
       pageWidth * pageRatio
     );
-
 
   return {
     width: pageWidth,
@@ -119,16 +105,13 @@ function getBookSize() {
 }
 
 
-/*
-  Canvas → 손실 없는 PNG
-*/
 function canvasToPngBlob(canvas) {
 
   return new Promise(
     (resolve, reject) => {
 
       canvas.toBlob(
-        (blob) => {
+        function (blob) {
 
           if (blob) {
 
@@ -154,33 +137,31 @@ function canvasToPngBlob(canvas) {
 }
 
 
-/*
-  이미지 로딩 완료 대기
-*/
 function waitForImage(image) {
 
   if (
     image.complete &&
     image.naturalWidth > 0
   ) {
-
     return Promise.resolve();
-
   }
 
-
   return new Promise(
-    (resolve, reject) => {
+    function (resolve, reject) {
 
       image.onload =
-        () => resolve();
+        function () {
+          resolve();
+        };
 
       image.onerror =
-        () => reject(
-          new Error(
-            "페이지 이미지를 불러올 수 없습니다."
-          )
-        );
+        function () {
+          reject(
+            new Error(
+              "페이지 이미지를 불러올 수 없습니다."
+            )
+          );
+        };
 
     }
   );
@@ -188,9 +169,6 @@ function waitForImage(image) {
 }
 
 
-/*
-  페이지 카운터
-*/
 function updateCounter(pageIndex) {
 
   const currentPage =
@@ -199,10 +177,10 @@ function updateCounter(pageIndex) {
       totalPages
     );
 
-
   pageCounter.textContent =
-    `${String(currentPage).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`;
-
+    String(currentPage).padStart(2, "0") +
+    " / " +
+    String(totalPages).padStart(2, "0");
 
   prevButton.disabled =
     pageIndex <= 0;
@@ -213,9 +191,6 @@ function updateCounter(pageIndex) {
 }
 
 
-/*
-  PDF 한 페이지를 고해상도 PNG로 만든다.
-*/
 async function createPageImage(
   pdf,
   pageNumber
@@ -226,29 +201,29 @@ async function createPageImage(
       pageNumber
     );
 
-
   const originalViewport =
     page.getViewport({
       scale: 1
     });
 
+  const renderWidth =
+    isMobileDevice()
+      ? RENDER_WIDTH_MOBILE
+      : RENDER_WIDTH_DESKTOP;
 
   const renderScale =
-    RENDER_WIDTH /
+    renderWidth /
     originalViewport.width;
-
 
   const viewport =
     page.getViewport({
       scale: renderScale
     });
 
-
   const canvas =
     document.createElement(
       "canvas"
     );
-
 
   const context =
     canvas.getContext(
@@ -258,15 +233,11 @@ async function createPageImage(
       }
     );
 
-
   if (!context) {
-
     throw new Error(
       "Canvas를 만들 수 없습니다."
     );
-
   }
-
 
   canvas.width =
     Math.ceil(
@@ -278,10 +249,8 @@ async function createPageImage(
       viewport.height
     );
 
-
   context.fillStyle =
     "#ffffff";
-
 
   context.fillRect(
     0,
@@ -290,158 +259,126 @@ async function createPageImage(
     canvas.height
   );
 
-
   await page.render({
     canvasContext: context,
     viewport: viewport
   }).promise;
-
 
   const blob =
     await canvasToPngBlob(
       canvas
     );
 
-
   const imageUrl =
     URL.createObjectURL(
       blob
     );
 
-
   temporaryImageUrls.push(
     imageUrl
   );
-
 
   const pageElement =
     document.createElement(
       "div"
     );
 
-
   pageElement.className =
     "page";
-
 
   if (
     pageNumber === 1 ||
     pageNumber === totalPages
   ) {
-
     pageElement.dataset.density =
       "hard";
-
   }
-
 
   const image =
     document.createElement(
       "img"
     );
 
-
   image.src =
     imageUrl;
 
-
   image.alt =
-    `SUNDAY ZINE Vol.2 page ${pageNumber}`;
-
+    "SUNDAY ZINE Vol.2 page " +
+    pageNumber;
 
   image.draggable =
     false;
-
-
-  image.decoding =
-    "async";
-
 
   pageElement.appendChild(
     image
   );
 
-
   book.appendChild(
     pageElement
   );
-
 
   await waitForImage(
     image
   );
 
-
   canvas.width = 1;
   canvas.height = 1;
-
 
   page.cleanup();
 
 }
 
 
-/*
-  플립북 시작
-*/
 async function startViewer() {
 
   try {
 
     if (
+      typeof pdfjsLib === "undefined"
+    ) {
+      throw new Error(
+        "PDF 라이브러리를 불러오지 못했습니다."
+      );
+    }
+
+    if (
       !window.St ||
       !window.St.PageFlip
     ) {
-
       throw new Error(
         "플립북 라이브러리를 불러오지 못했습니다."
       );
-
     }
-
 
     const loadingTask =
       pdfjsLib.getDocument({
         url: pdfUrl
       });
 
-
     const pdf =
       await loadingTask.promise;
-
 
     totalPages =
       pdf.numPages;
 
-
-    /*
-      실제 PDF 비율을 읽어서 사용한다.
-    */
     const firstPage =
       await pdf.getPage(1);
-
 
     const firstViewport =
       firstPage.getViewport({
         scale: 1
       });
 
-
     pageRatio =
       firstViewport.height /
       firstViewport.width;
 
-
     firstPage.cleanup();
 
-
     pageCounter.textContent =
-      `01 / ${String(totalPages).padStart(2, "0")}`;
+      "01 / " +
+      String(totalPages).padStart(2, "0");
 
-
-    /*
-      PDF 페이지 준비
-    */
     for (
       let pageNumber = 1;
       pageNumber <= totalPages;
@@ -449,8 +386,10 @@ async function startViewer() {
     ) {
 
       status.textContent =
-        `페이지 준비 중 ${pageNumber} / ${totalPages}`;
-
+        "페이지 준비 중 " +
+        pageNumber +
+        " / " +
+        totalPages;
 
       await createPageImage(
         pdf,
@@ -459,26 +398,14 @@ async function startViewer() {
 
     }
 
-
-    /*
-      크기를 계산하기 전에
-      하단 컨트롤 영역을 레이아웃에 먼저 포함시킨다.
-      보이지 않게만 해둔다.
-    */
     controls.hidden =
       false;
 
     controls.style.visibility =
       "hidden";
 
-
-    /*
-      위 변경사항을 브라우저 레이아웃에 반영한 뒤
-      실제 main 크기를 읽는다.
-    */
     const bookSize =
       getBookSize();
-
 
     pageFlip =
       new window.St.PageFlip(
@@ -533,23 +460,19 @@ async function startViewer() {
         }
       );
 
-
     pageFlip.on(
       "init",
-      (event) => {
+      function (event) {
 
         status.style.display =
           "none";
-
 
         book.classList.add(
           "ready"
         );
 
-
         controls.style.visibility =
           "visible";
-
 
         if (
           event.data &&
@@ -569,10 +492,9 @@ async function startViewer() {
       }
     );
 
-
     pageFlip.on(
       "flip",
-      (event) => {
+      function (event) {
 
         updateCounter(
           event.data
@@ -581,37 +503,33 @@ async function startViewer() {
       }
     );
 
-
     pageFlip.loadFromHTML(
       book.querySelectorAll(
         ".page"
       )
     );
 
-
     prevButton.addEventListener(
       "click",
-      () => {
+      function () {
 
         pageFlip.flipPrev();
 
       }
     );
 
-
     nextButton.addEventListener(
       "click",
-      () => {
+      function () {
 
         pageFlip.flipNext();
 
       }
     );
 
-
     document.addEventListener(
       "keydown",
-      (event) => {
+      function (event) {
 
         if (
           event.key ===
@@ -621,7 +539,6 @@ async function startViewer() {
           pageFlip.flipPrev();
 
         }
-
 
         if (
           event.key ===
@@ -635,45 +552,34 @@ async function startViewer() {
       }
     );
 
-
   } catch (error) {
 
-    console.error(
-      error
-    );
-
+    console.error(error);
 
     book.classList.remove(
       "ready"
     );
 
-
     controls.hidden =
       true;
-
 
     status.style.display =
       "block";
 
-
     status.textContent =
-      `오류: ${error.message || error}`;
+      "플립북을 불러오지 못했습니다. 페이지를 새로고침해주세요.";
 
   }
 
 }
 
 
-/*
-  페이지 종료 시 임시 PNG 정리
-*/
 window.addEventListener(
   "beforeunload",
-  () => {
+  function () {
 
     for (
-      const url
-      of temporaryImageUrls
+      const url of temporaryImageUrls
     ) {
 
       URL.revokeObjectURL(
