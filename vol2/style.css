@@ -61,13 +61,13 @@ main {
   transform: translate(-50%, -50%);
 
   font-size: 11px;
-
   white-space: nowrap;
+
+  z-index: 10;
 }
 
 #book {
   visibility: hidden;
-
   margin: 0 auto;
 }
 
@@ -144,10 +144,29 @@ main {
   letter-spacing: 0.04em;
 }
 
+
+/*
+  모바일 / 터치 기기
+
+  한 손가락의 세로 움직임과
+  두 손가락 pinch zoom은 브라우저에 허용.
+
+  가로 방향은 우리가 페이지 넘김으로 처리.
+*/
+@media (pointer: coarse) {
+
+  #book {
+    touch-action: pan-y pinch-zoom;
+    cursor: pointer;
+  }
+
+}
+
+
 @media (max-width: 700px) {
+
   header {
     padding: 11px 12px;
-
     font-size: 10px;
   }
 
@@ -157,7 +176,7 @@ main {
 
   #controls {
     min-height: 46px;
-
     padding: 4px 12px 8px;
   }
+
 }
