@@ -659,11 +659,27 @@ function updateCounter(
 }
 
 
+/*
+  다음 페이지
+
+  StPageFlip 내부의 실제 현재 페이지 위치를
+  직접 읽어서 이동한다.
+*/
 async function goNext() {
 
+  if (!pageFlip) {
+
+    return;
+
+  }
+
+
+  const actualIndex =
+    pageFlip.getCurrentPageIndex();
+
+
   if (
-    !pageFlip ||
-    currentPageIndex >=
+    actualIndex >=
     totalPages - 1
   ) {
 
@@ -674,14 +690,13 @@ async function goNext() {
 
   const nextIndex =
     Math.min(
-      currentPageIndex + 1,
+      actualIndex + 1,
       totalPages - 1
     );
 
 
   /*
-    바로 보여질 다음 페이지들만
-    먼저 준비한다.
+    실제로 바로 보여질 페이지만 먼저 준비한다.
   */
   await Promise.all([
 
@@ -703,11 +718,27 @@ async function goNext() {
 }
 
 
+/*
+  이전 페이지
+
+  별도로 저장해둔 currentPageIndex가 아니라
+  StPageFlip의 실제 현재 위치를 기준으로 한다.
+*/
 async function goPrev() {
 
+  if (!pageFlip) {
+
+    return;
+
+  }
+
+
+  const actualIndex =
+    pageFlip.getCurrentPageIndex();
+
+
   if (
-    !pageFlip ||
-    currentPageIndex <= 0
+    actualIndex <= 0
   ) {
 
     return;
@@ -718,13 +749,12 @@ async function goPrev() {
   const prevIndex =
     Math.max(
       0,
-      currentPageIndex - 1
+      actualIndex - 1
     );
 
 
   /*
-    바로 보여질 이전 페이지들만
-    먼저 준비한다.
+    이전으로 돌아갔을 때 필요한 페이지만 먼저 준비한다.
   */
   await Promise.all([
 
@@ -917,19 +947,17 @@ function enableTouchNavigation() {
 
         }
 
+
         return;
 
       }
 
 
       /*
-        짧게 누름
+        짧은 탭
 
-        책 왼쪽 절반:
-        이전 페이지
-
-        오른쪽 절반:
-        다음 페이지
+        책 왼쪽 절반 = 이전
+        책 오른쪽 절반 = 다음
       */
       if (
         Math.abs(
@@ -974,9 +1002,8 @@ function enableTouchNavigation() {
 
 
   /*
-    Safari가 pinch / scroll 처리를 시작하면
-    pointercancel이 발생할 수 있으므로
-    상태를 초기화한다.
+    Safari가 pinch/scroll 처리를 시작하면
+    pointercancel이 발생할 수 있다.
   */
   book.addEventListener(
     "pointercancel",
@@ -1095,8 +1122,7 @@ async function startViewer() {
 
 
     /*
-      표지만 먼저 렌더링해서
-      초기 화면을 빠르게 띄운다.
+      표지만 먼저 렌더링한다.
     */
     await renderPage(
       1
@@ -1160,6 +1186,10 @@ async function startViewer() {
           swipeDistance:
             30,
 
+          /*
+            PC는 기존 PageFlip 동작 사용.
+            모바일은 우리가 직접 탭/스와이프 처리.
+          */
           useMouseEvents:
             !touchDevice,
 
@@ -1215,8 +1245,8 @@ async function startViewer() {
 
 
         /*
-          책이 먼저 보인 뒤
-          주변 페이지들을 뒤에서 준비한다.
+          책을 먼저 보여준 뒤
+          주변 페이지를 준비한다.
         */
         renderAround(
           initialPage
@@ -1239,8 +1269,7 @@ async function startViewer() {
 
 
         /*
-          페이지가 넘어간 뒤
-          주변 페이지들을 추가 준비한다.
+          이동 완료 후 주변 페이지 준비.
         */
         renderAround(
           event.data
@@ -1260,6 +1289,9 @@ async function startViewer() {
     enableTouchNavigation();
 
 
+    /*
+      하단 ← 버튼
+    */
     prevButton.addEventListener(
       "click",
 
@@ -1271,6 +1303,9 @@ async function startViewer() {
     );
 
 
+    /*
+      하단 → 버튼
+    */
     nextButton.addEventListener(
       "click",
 
@@ -1282,6 +1317,9 @@ async function startViewer() {
     );
 
 
+    /*
+      PC 키보드
+    */
     document.addEventListener(
       "keydown",
 
