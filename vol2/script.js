@@ -661,9 +661,6 @@ function updateCounter(
 
 /*
   다음 페이지
-
-  StPageFlip 내부의 실제 현재 페이지 위치를
-  직접 읽어서 이동한다.
 */
 async function goNext() {
 
@@ -688,31 +685,35 @@ async function goNext() {
   }
 
 
-  const nextIndex =
-    Math.min(
-      actualIndex + 1,
-      totalPages - 1
-    );
+  const targetIndex =
+    actualIndex + 1;
 
 
   /*
-    실제로 바로 보여질 페이지만 먼저 준비한다.
+    다음 페이지를 먼저 준비
   */
-  await Promise.all([
-
-    renderPage(
-      nextIndex + 1
-    ),
-
-    nextIndex + 2 <= totalPages
-      ? renderPage(
-          nextIndex + 2
-        )
-      : Promise.resolve()
-
-  ]);
+  await renderPage(
+    targetIndex + 1
+  );
 
 
+  /*
+    모바일은 기존 다음 넘김 방식 유지
+  */
+  if (
+    isTouchDevice()
+  ) {
+
+    pageFlip.flipNext();
+
+    return;
+
+  }
+
+
+  /*
+    PC도 기존 PageFlip 애니메이션 사용
+  */
   pageFlip.flipNext();
 
 }
@@ -721,8 +722,8 @@ async function goNext() {
 /*
   이전 페이지
 
-  별도로 저장해둔 currentPageIndex가 아니라
-  StPageFlip의 실제 현재 위치를 기준으로 한다.
+  모바일에서는 flipPrev()를 사용하지 않고
+  turnToPage()로 직접 이전 페이지로 이동한다.
 */
 async function goPrev() {
 
@@ -746,31 +747,50 @@ async function goPrev() {
   }
 
 
-  const prevIndex =
-    Math.max(
-      0,
-      actualIndex - 1
-    );
+  const targetIndex =
+    actualIndex - 1;
 
 
   /*
-    이전으로 돌아갔을 때 필요한 페이지만 먼저 준비한다.
+    이전 페이지 이미지를 먼저 준비
   */
-  await Promise.all([
-
-    renderPage(
-      prevIndex + 1
-    ),
-
-    prevIndex >= 1
-      ? renderPage(
-          prevIndex
-        )
-      : Promise.resolve()
-
-  ]);
+  await renderPage(
+    targetIndex + 1
+  );
 
 
+  /*
+    모바일:
+    flipPrev 대신 직접 이전 페이지로 이동
+  */
+  if (
+    isTouchDevice()
+  ) {
+
+    pageFlip.turnToPage(
+      targetIndex
+    );
+
+
+    updateCounter(
+      targetIndex
+    );
+
+
+    renderAround(
+      targetIndex
+    );
+
+
+    return;
+
+  }
+
+
+  /*
+    PC:
+    기존 애니메이션 그대로 유지
+  */
   pageFlip.flipPrev();
 
 }
@@ -779,14 +799,14 @@ async function goPrev() {
 /*
   모바일 / 터치 조작
 
-  1 finger:
+  한 손가락:
   왼쪽 탭 = 이전
   오른쪽 탭 = 다음
-  좌우 swipe = 페이지 이동
+  왼쪽 스와이프 = 다음
+  오른쪽 스와이프 = 이전
 
-  2 fingers:
-  브라우저 pinch zoom에 넘기고
-  페이지 이동은 실행하지 않음.
+  두 손가락:
+  브라우저 기본 pinch zoom
 */
 function enableTouchNavigation() {
 
@@ -865,11 +885,6 @@ function enableTouchNavigation() {
       event
     ) {
 
-      /*
-        두 손가락 이상이 사용된 동작이면
-        pinch zoom으로 간주하고
-        페이지 넘김은 하지 않는다.
-      */
       if (
         gestureHadMultiplePointers
       ) {
@@ -955,9 +970,6 @@ function enableTouchNavigation() {
 
       /*
         짧은 탭
-
-        책 왼쪽 절반 = 이전
-        책 오른쪽 절반 = 다음
       */
       if (
         Math.abs(
@@ -1001,10 +1013,6 @@ function enableTouchNavigation() {
   );
 
 
-  /*
-    Safari가 pinch/scroll 처리를 시작하면
-    pointercancel이 발생할 수 있다.
-  */
   book.addEventListener(
     "pointercancel",
 
@@ -1121,9 +1129,6 @@ async function startViewer() {
       "표지를 불러오는 중...";
 
 
-    /*
-      표지만 먼저 렌더링한다.
-    */
     await renderPage(
       1
     );
@@ -1186,10 +1191,6 @@ async function startViewer() {
           swipeDistance:
             30,
 
-          /*
-            PC는 기존 PageFlip 동작 사용.
-            모바일은 우리가 직접 탭/스와이프 처리.
-          */
           useMouseEvents:
             !touchDevice,
 
@@ -1244,10 +1245,6 @@ async function startViewer() {
         );
 
 
-        /*
-          책을 먼저 보여준 뒤
-          주변 페이지를 준비한다.
-        */
         renderAround(
           initialPage
         );
@@ -1268,9 +1265,6 @@ async function startViewer() {
         );
 
 
-        /*
-          이동 완료 후 주변 페이지 준비.
-        */
         renderAround(
           event.data
         );
@@ -1289,9 +1283,6 @@ async function startViewer() {
     enableTouchNavigation();
 
 
-    /*
-      하단 ← 버튼
-    */
     prevButton.addEventListener(
       "click",
 
@@ -1303,9 +1294,6 @@ async function startViewer() {
     );
 
 
-    /*
-      하단 → 버튼
-    */
     nextButton.addEventListener(
       "click",
 
@@ -1317,9 +1305,6 @@ async function startViewer() {
     );
 
 
-    /*
-      PC 키보드
-    */
     document.addEventListener(
       "keydown",
 
